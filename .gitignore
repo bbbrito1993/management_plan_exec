@@ -1,5 +1,6 @@
 # Clojure
 .cpcache/
+backend/.cpcache/
 target/
 *.class
 *.jar
@@ -44,4 +45,9 @@ temp/
 .lein-*
 
 # Clj-kondo cache
+.clj-kondo/
 .clj-kondo/.cache/
+
+# LSP cache
+.lsp/
+.lsp/.cache/
