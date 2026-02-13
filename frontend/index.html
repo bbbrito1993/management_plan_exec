@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Volis</title>
+</head>
+
+<body>
+    <h2>Volis Dashboard</h2>
+
+    <h3>Upload de Arquivos CSV</h3>
+    <form id="upload-planned" enctype="multipart/form-data">
+        <label>Planned CSV: <input type="file" name="file" accept=".csv" required></label>
+        <button type="submit">Upload Planned</button>
+    </form>
+    <form id="upload-executed" enctype="multipart/form-data">
+        <label>Executed CSV: <input type="file" name="file" accept=".csv" required></label>
+        <button type="submit">Upload Executed</button>
+    </form>
+
+    <hr>
+
+    <form id="filter">
+        Date:
+        <input type="date" name="date">
+
+        Type:
+        <input name="type">
+
+        Activity:
+        <input name="activity">
+
+        <button>Filter</button>
+
+    </form>
+
+    <hr>
+
+    <div id="result"></div>
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>
