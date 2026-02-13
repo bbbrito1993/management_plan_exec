@@ -1,27 +1,37 @@
 (ns volis.server-test
   (:require
-   [clojure.test :refer [deftest is testing]]
    [clojure.string :as str]
-   [volis.server :as server]
-   [ring.mock.request :as mock]))
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [ring.mock.request :as mock]
+   [volis.db :as db]
+   [volis.csv :as csv]
+   [volis.server :as server]))
 
+(defn mock-db-fixture [f]
+  (with-redefs [db/get-report (fn [_] [{:planned/date "2026-02-10"
+                                        :planned/type "type1"
+                                        :planned/activity "activity1"
+                                        :planned/unit "unit1"
+                                        :planned/planned 100
+                                        :planned/executed 50}])]
+    (f)))
 
-;; =========================
-;; Route Tests
-;; =========================
+(use-fixtures :each mock-db-fixture)
 
 (deftest test-healthcheck
-  (testing "GET /health should return 200 OK"
+  (testing "GET /health should return 200 OK with JSON"
     (let [response (server/app (mock/request :get "/health"))]
-      (is (= (:status response) 200))
-      (is (= (:body response) "OK")))))
+      (is {:status 200
+           :headers {"Content-Type" "application/json"}
+           :body "{\"status\":\"OK\"}"} response))))
 
 
 (deftest test-not-found
   (testing "GET /nonexistent should return 404"
     (let [response (server/app (mock/request :get "/nonexistent"))]
-      (is (= (:status response) 404)))))
-
+      (is (= {:status 404
+              :headers {"Content-Type" "text/html; charset=utf-8"},
+              :body "Not Found"} response)))))
 
 (deftest test-cors-headers
   (testing "response should have CORS headers"
@@ -29,120 +39,83 @@
                                    (mock/header "Origin" "http://localhost:8080")))]
       (is (contains? (:headers response) "Access-Control-Allow-Origin")))))
 
-
-;; =========================
-;; Response Helper Tests
-;; =========================
-
 (deftest test-response
   (testing "response with single argument should return 200"
     (let [resp (server/response "Hello")]
-      (is (= (:status resp) 200))
-      (is (= (:body resp) "Hello"))))
+      (is (= {:status 200 :headers {"Content-Type" "text/html"}, :body "Hello"} resp))))
 
   (testing "response with status and body"
     (let [resp (server/response 404 "Not Found")]
-      (is (= (:status resp) 404))
-      (is (= (:body resp) "Not Found"))))
+      (is (= {:status 404 :headers {"Content-Type" "text/html"} :body "Not Found"} resp))))
 
   (testing "response should have Content-Type header"
     (let [resp (server/response "test")]
       (is (= (get-in resp [:headers "Content-Type"]) "text/html")))))
 
-
-;; =========================
-;; Render Table Tests
-;; =========================
-
-(deftest test-render-table
-  (testing "render-table should create HTML table"
-    (let [rows [{:planned/date "2026-02-10"
-                 :planned/type "type1"
-                 :planned/activity "activity1"
-                 :planned/unit "unit1"
-                 :planned/planned 100
-                 :planned/executed 50}]
-          html (server/render-table rows)]
-      (is (string? html))
-      (is (str/includes? html "<table"))
-      (is (str/includes? html "</table>"))
-      (is (str/includes? html "2026-02-10"))
-      (is (str/includes? html "type1"))))
-
-  (testing "render-table should handle empty rows"
-    (let [html (server/render-table [])]
-      (is (string? html))
-      (is (str/includes? html "<table")))))
-
-
-;; =========================
-;; API Route Tests
-;; =========================
-
 (deftest test-upload-planned-without-file
-  (testing "POST /upload/planned without file should return 400"
+  (testing "POST /upload/planned without file should return 400 with JSON error"
     (let [response (server/app (mock/request :post "/upload/planned"))]
-      (is (= (:status response) 400))
-      (is (= (:body response) "File not found")))))
-
+      (is (= {:status 400
+              :headers {"Content-Type" "application/json"}
+              :body "{\"error\":\"File not found\"}"} response)))))
 
 (deftest test-upload-executed-without-file
-  (testing "POST /upload/executed without file should return 400"
+  (testing "POST /upload/executed without file should return 400 with JSON error"
     (let [response (server/app (mock/request :post "/upload/executed"))]
       (is (= (:status response) 400))
-      (is (= (:body response) "File not found")))))
+      (is (= (get (:headers response) "Content-Type") "application/json"))
+      (is (str/includes? (:body response) "\"error\":\"File not found\"")))))
+
+
+(deftest test-upload-planned-with-file
+  (testing "POST /upload/planned with file should return 200 with JSON success"
+    (with-redefs [csv/import-planned! (fn [_] nil)]
+      (let [response (server/app (assoc (mock/request :post "/upload/planned") :params {"file" {:tempfile (java.io.File/createTempFile "test" ".csv")}}))]
+        (is (= {:status 200 :headers {"Content-Type" "application/json"} :body "{\"status\":\"ok\",\"message\":\"Planned CSV imported\"}"} response))))))
+
+(deftest test-upload-executed-with-file
+  (testing "POST /upload/executed with file should return 200 with JSON success"
+    (with-redefs [csv/import-executed! (fn [_] nil)]
+      (let [response (server/app (assoc (mock/request :post "/upload/executed") :params {"file" {:tempfile (java.io.File/createTempFile "test" ".csv")}}))]
+        (is (= {:status 200 :headers {"Content-Type" "application/json"} :body "{\"status\":\"ok\",\"message\":\"Executed CSV imported\"}"} response))
+        (is (= (get (:headers response) "Content-Type") "application/json"))
+        (is (str/includes? (:body response) "\"status\":\"ok\""))))))
 
 
 (deftest test-report-without-filters
-  (testing "GET /report without filters should return 200 with HTML table"
+  (testing "GET /report without filters should return 200 with JSON array"
     (let [response (server/app (mock/request :get "/report"))
           body (:body response)]
       (is (= (:status response) 200))
+      (is (= (get (:headers response) "Content-Type") "application/json"))
       (is (string? body))
-      (is (str/includes? body "<table"))
-      (is (str/includes? body "<thead"))
-      (is (str/includes? body "<tbody"))
-      (is (str/includes? body "</table>"))
-      ;; Validar estrutura de colunas esperadas
-      (is (str/includes? body "Date"))
-      (is (str/includes? body "Type"))
-      (is (str/includes? body "Activity")))))
-
+      ;; Verificar se é um array JSON (começa com [)
+      (is (str/starts-with? body "["))
+      (is (str/ends-with? body "]")))))
 
 (deftest test-report-with-date-filter
-  (testing "GET /report with date filter should return 200"
+  (testing "GET /report with date filter should return 200 with JSON"
     (let [request (-> (mock/request :get "/report")
                       (mock/query-string {"date" "2026-02-10"}))
           response (server/app request)
           body (:body response)]
       (is (= (:status response) 200))
-      (is (str/includes? body "<table"))
-      ;; Verificar que a tabela tem headers
-      (is (str/includes? body "Date"))
-      (is (str/includes? body "Planned"))
-      (is (str/includes? body "Executed")))))
-
+      (is (= (get (:headers response) "Content-Type") "application/json"))
+      (is (str/starts-with? body "["))
+      (is (str/ends-with? body "]")))))
 
 (deftest test-report-with-multiple-filters
-  (testing "GET /report with multiple filters returns valid HTML table"
+  (testing "GET /report with multiple filters returns valid JSON array"
     (let [request (-> (mock/request :get "/report")
                       (mock/query-string {"date" "2026-02-10"
                                           "type" "tipo1"
                                           "activity" "atividade1"}))
-          response (server/app request)
-          body (:body response)]
-      (is (= (:status response) 200))
-      (is (string? body))
-      ;; Mostra o retorno (truncado se muito grande)
-      (when (> (count body) 200)
-        (println "Response body (first 200 chars):" (subs body 0 200) "..."))
-      ;; Valida estrutura básica
-      (is (str/includes? body "<table"))
-      (is (str/includes? body "</table>")))))
-
-
+          response (server/app request)]
+      (is (= {:status 200,
+              :headers {"Content-Type" "application/json"}
+              :body "[{\"planned/date\":\"2026-02-10\",\"planned/type\":\"type1\",\"planned/activity\":\"activity1\",\"planned/unit\":\"unit1\",\"planned/planned\":100,\"planned/executed\":50}]"} response)))))
 
 (deftest test-response-headers
   (testing "All responses should have Content-Type header"
     (let [response (server/app (mock/request :get "/health"))]
-      (is (= (get (:headers response) "Content-Type") "text/html")))))
+      (is (= (get (:headers response) "Content-Type") "application/json")))))

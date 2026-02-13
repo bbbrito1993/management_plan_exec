@@ -75,19 +75,20 @@
 
   (testing "should skip invalid dates"
     (let [csv-file (create-temp-csv
-                     [["2026-02-10" "type1" "activity1" "unit1" "100"]
-                      ["invalid" "type2" "activity2" "unit2" "200"]])
+                    [["2026-02-10" "type1" "activity1" "unit1" "100"]
+                     ["invalid" "type2" "activity2" "unit2" "200"]])
           result (csv/parse-file csv-file)]
-      (is (clojure.pprint/pprint result))))
+      (is (= [{:date #inst "2026-02-10T00:00:00.000-00:00"
+               :type "type1"
+               :activity "activity1"
+               :unit "unit1"
+               :value 100.0}] result))))
 
   (testing "should normalize strings"
     (let [csv-file (create-temp-csv
-                     [["2026-02-10" "  type  " "  activity  " "  unit  " "100"]])
-          result (csv/parse-file csv-file)
-          first-row (first result)]
-      (is (= (:type first-row) "type"))
-      (is (= (:activity first-row) "activity"))
-      (is (= (:unit first-row) "unit"))))
+                    [["2026-02-10" "  type  " "  activity  " "  unit  " "100"]])
+          result (csv/parse-file csv-file)]
+      (is (= result [{:date #inst "2026-02-10" :type "type" :activity "activity" :unit "unit" :value 100.0}]))))
 
   (testing "should handle invalid numbers"
     (let [csv-file (create-temp-csv

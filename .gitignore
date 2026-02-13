@@ -1,0 +1,47 @@
+# Clojure
+.cpcache/
+target/
+*.class
+*.jar
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Docker
+.dockerignore
+
+# Node.js (if used in frontend)
+node_modules/
+npm-debug.log*
+
+# Temporary files
+tmp/
+temp/
+
+# Database
+*.db
+*.sqlite
+
+# Test coverage
+.coverage/
+
+# Lein (if used)
+.lein-*
+
+# Clj-kondo cache
+.clj-kondo/.cache/

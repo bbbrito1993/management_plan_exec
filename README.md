@@ -44,7 +44,10 @@ docker-compose stop [db|backend|frontend]
 ## Rodar testes
 
 ```bash
-cd backend
+# Abrir bash no container do backend
+docker run --rm -it -v ./backend:/app volis_backend /bin/bash
+
+# Dentro do container, executar os testes
 clj -M:test
 ```
 

@@ -2,7 +2,6 @@
   (:require
    [compojure.core :refer [GET POST defroutes]]
    [compojure.route :as route]
-   [hiccup.core :refer [html]]
    [cheshire.core :as json]
    [ring.adapter.jetty :refer [run-jetty]]
    [ring.middleware.cors :refer [wrap-cors]]
@@ -15,21 +14,6 @@
    [volis.env :as env])
   (:gen-class))
 
-
-;; =========================
-;; Helpers de Response
-;; =========================
-
-(defn response
-  ([body]
-   {:status 200
-    :headers {"Content-Type" "text/html"}
-    :body body})
-  ([status body]
-   {:status status
-    :headers {"Content-Type" "text/html"}
-    :body body}))
-
 (defn json-response
   ([data]
    {:status 200
@@ -40,46 +24,25 @@
     :headers {"Content-Type" "application/json"}
     :body (json/generate-string data)}))
 
-(defn render-table [rows]
-  (html
-   [:table {:border "1" :cellpadding "6" :style "border-collapse: collapse;"}
-    [:thead
-     [:tr
-      [:th "Date"]
-      [:th "Type"]
-      [:th "Activity"]
-      [:th "Unit"]
-      [:th "Planned"]
-      [:th "Executed"]]]
-    [:tbody
-     (for [r rows]
-       [:tr
-        [:td (:planned/date r)]
-        [:td (:planned/type r)]
-        [:td (:planned/activity r)]
-        [:td (:planned/unit r)]
-        [:td (:planned/planned r)]
-        [:td (:planned/executed r)]])]]))
-
 (defroutes routes
   (GET "/health" []
     (json-response {:status "OK"}))
-  
+
   (POST "/upload/planned" {params :params}
     (let [file (get-in params ["file" :tempfile])]
       (if file
         (do
           (csv/import-planned! file)
           (json-response {:status "ok" :message "Planned CSV imported"}))
-        (response 400 "File not found"))))
-  
+        (json-response 400 {:error "File not found"}))))
+
   (POST "/upload/executed" {params :params}
     (let [file (get-in params ["file" :tempfile])]
       (if file
         (do
           (csv/import-executed! file)
           (json-response {:status "ok" :message "Executed CSV imported"}))
-        (response 400 "File not found"))))
+        (json-response 400 {:error "File not found"}))))
 
   (GET "/report" {params :params}
     (let [filters
