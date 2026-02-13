@@ -41,16 +41,16 @@
 
 (deftest test-response
   (testing "response with single argument should return 200"
-    (let [resp (server/response "Hello")]
-      (is (= {:status 200 :headers {"Content-Type" "text/html"}, :body "Hello"} resp))))
+    (let [resp (server/json-response "Hello")]
+      (is (= {:status 200 :headers {"Content-Type" "application/json"} :body "\"Hello\""} resp))))
 
-  (testing "response with status and body"
-    (let [resp (server/response 404 "Not Found")]
-      (is (= {:status 404 :headers {"Content-Type" "text/html"} :body "Not Found"} resp))))
+  (testing " response with status and body "
+    (let [resp (server/json-response 404 "Not Found")]
+      (is (= {:status 404 :headers {"Content-Type" "application/json"} :body "\"Not Found\""} resp))))
 
   (testing "response should have Content-Type header"
-    (let [resp (server/response "test")]
-      (is (= (get-in resp [:headers "Content-Type"]) "text/html")))))
+    (let [resp (server/json-response "test")]
+      (is (= "application/json" (get-in resp [:headers "Content-Type"]))))))
 
 (deftest test-upload-planned-without-file
   (testing "POST /upload/planned without file should return 400 with JSON error"
