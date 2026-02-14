@@ -3,6 +3,7 @@
    [clojure.data.csv :as csv]
    [clojure.java.io :as io]
    [clojure.string :as str]
+   [taoensso.timbre :as log]
    [volis.db :as db]))
 
 (defn parse-date
@@ -12,9 +13,8 @@
   (try
     (java.sql.Date/valueOf s)
     (catch Exception _
-      (println "Invalid date:" s)
+      (log/warnf "Invalid date: %s" s)
       nil)))
-
 
 (defn parse-double-str
   "Converte string para double.
@@ -23,7 +23,7 @@
   (try
     (Double/parseDouble s)
     (catch Exception _
-      (println "Invalid number:" s)
+      (log/warnf "Invalid number: %s" s)
       0.0)))
 
 (defn normalize
@@ -36,14 +36,14 @@
   "Lê CSV e transforma em lista de mapas"
   [file]
   (with-open [reader (io/reader file)]
-    (let [[header & rows] (csv/read-csv reader)]
+    (let [[_header & rows] (csv/read-csv reader)]
       (doall
        (->> rows
             (map-indexed
              (fn [idx [date type activity unit value]]
                (let [d (parse-date date)]
                  (when-not d
-                   (println "Skipping line" (+ idx 2)))
+                   (log/warnf "Skipping line %d" (+ idx 2)))
                  {:date d
                   :type (normalize type)
                   :activity (normalize activity)
@@ -52,38 +52,20 @@
             ;; Remove linhas com data inválida
             (filter :date))))))
 
-
-;; =========================
-;; Import
-;; =========================
-
 (defn import-planned!
   "Importa CSV planned no banco"
-
   [file]
-
-  (println "Importing planned CSV...")
-
+  (log/infof "Importing planned CSV: %s" file)
   (let [data (parse-file file)]
-
-    (println "Valid rows:" (count data))
-
+    (log/infof "Valid rows: %d" (count data))
     (db/insert-planned! data)
-
-    (println "Planned import finished")))
-
+    (log/info "Planned import finished")))
 
 (defn import-executed!
   "Importa CSV executed no banco"
-
   [file]
-
-  (println "Importing executed CSV...")
-
+  (log/infof "Importing executed CSV: %s" file)
   (let [data (parse-file file)]
-
-    (println "Valid rows:" (count data))
-
+    (log/infof "Valid rows: %d" (count data))
     (db/insert-executed! data)
-
-    (println "Executed import finished")))
+    (log/info "Executed import finished")))

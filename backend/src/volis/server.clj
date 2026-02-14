@@ -64,7 +64,7 @@
       wrap-params))
 
 (defn -main [& _]
-  (log/warnf "Starting Volis Server at port %s" env/server-port)
+  (log/infof "Starting Volis Server at port %s" env/server-port)
   ;; Cria tabelas automaticamente
   (migrate/migrate!)
   (run-jetty app {:port env/server-port :join? false}))
